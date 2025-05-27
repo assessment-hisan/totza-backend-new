@@ -1,9 +1,11 @@
 // controllers/small/workerController.js
 import Worker from "../../models/Worker.js";
 import CompanyTransaction from "../../models/CompanyTransaction.js";
+import mongoose from "mongoose";
 // Create a new worker
 export const createWorker = async (req, res) => {
   try {
+    
     const workerData = req.body;
     workerData.createdBy = req.user._id; // Assuming you have authMiddleware
 
@@ -12,6 +14,7 @@ export const createWorker = async (req, res) => {
 
     res.status(201).json(worker);
   } catch (error) {
+    console,log(error)
     res.status(400).json({ message: error.message });
   }
 };
@@ -19,7 +22,7 @@ export const createWorker = async (req, res) => {
 // Get all workers
 export const getWorkers = async (req, res) => {
   try {
-    const workers = await Worker.find().populate('assignedProject', 'title');
+    const workers = await Worker.find({ deleted: false }).sort({ createdAt: -1 });
     res.json(workers);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -29,7 +32,7 @@ export const getWorkers = async (req, res) => {
 // Get worker by ID
 export const getWorkerById = async (req, res) => {
   try {
-    const worker = await Worker.findById(req.params.id).populate('assignedProject', 'title');
+    const worker = await Worker.findById(req.params.id);
     if (!worker) {
       return res.status(404).json({ message: 'Worker not found' });
     }
@@ -113,13 +116,31 @@ export const updateWorker = async (req, res) => {
 
 // Delete worker
 export const deleteWorker = async (req, res) => {
+  const { id } = req.params
+  console.log(req.params)
   try {
-    const worker = await Worker.findByIdAndDelete(req.params.id);
+    // First, validate the ID
+   
+     
+    // Check if the ID is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid worker ID' });
+    }
+
+    // Find the worker
+    const worker = await Worker.findById(id);
+    
     if (!worker) {
       return res.status(404).json({ message: 'Worker not found' });
     }
+
+    // Update and save
+    worker.deleted = true;
+    await worker.save();
+    
     res.json({ message: 'Worker deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error deleting worker:', error);
+    res.status(500).json({ message: 'Server error while deleting worker' });
   }
 };

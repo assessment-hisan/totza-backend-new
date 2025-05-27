@@ -123,14 +123,15 @@ export const getPayments = async (req, res) => {
 // @route   POST /api/dues/:id/payments
 // @access  Private
 export const createPayment = async (req, res) => {
+  console.log(req.body)
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const { amount,  paymentDate, notes, files } = req.body;
+    const { amount, paymentDate, purpose, files = [], discount = 0 } = req.body;
     const dueId = req.params.id;
     const userId = req.user.id;
-   
+
     // Validation
     if (!amount || amount <= 0) {
       return res.status(400).json({ 
@@ -139,12 +140,12 @@ export const createPayment = async (req, res) => {
       });
     }
 
-    // if (!mongoose.Types.ObjectId.isValid(account)) {
-    //   return res.status(400).json({ 
-    //     success: false,
-    //     error: 'Invalid account ID format' 
-    //   });
-    // }
+    if (discount < 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Discount cannot be negative'
+      });
+    }
 
     // Get the due within transaction
     const due = await CompanyTransaction.findById(dueId).session(session);
@@ -156,14 +157,15 @@ export const createPayment = async (req, res) => {
       });
     }
 
-    // Check payment doesn't exceed due
-    const paidAmount = due.payments.reduce((sum, p) => sum + p.amount, 0);
+    // Check payment doesn't exceed due (including discount)
+    const paidAmount = due.payments.reduce((sum, p) => sum + (p.amount + (p.discount || 0)), 0);
     const remainingAmount = due.amount - paidAmount;
+    const totalPayment = amount + discount;
     
-    if (amount > remainingAmount) {
+    if (totalPayment > remainingAmount) {
       return res.status(400).json({ 
         success: false,
-        error: `Payment amount exceeds remaining due balance of ${remainingAmount}` 
+        error: `Payment amount (including discount) exceeds remaining due balance of ${remainingAmount}` 
       });
     }
 
@@ -171,28 +173,28 @@ export const createPayment = async (req, res) => {
     const payment = new CompanyTransaction({
       type: 'Debit',
       amount,
-      // account,
+      discount,
       date: paymentDate || new Date(),
-      purpose: notes || `Payment for due ${due.amount, due.vendor || due._id}`,
+      purpose: purpose || `Payment for due ${due.amount} - ${due.vendor || due._id}`,
       linkedDue: dueId,
-      files: files || [],
+      files: Array.isArray(files) ? files : [],
       addedBy: userId
     });
 
     await payment.save({ session });
     
     // Update due status
-    const newPaidAmount = paidAmount + amount;
+    const newPaidAmount = paidAmount + amount + discount;
     if (newPaidAmount >= due.amount) {
       due.status = 'Fully Paid';
     } else if (newPaidAmount > 0) {
       due.status = 'Partially Paid';
     }
 
-    
     due.payments.push({
       payment: payment._id,
       amount: payment.amount,
+      discount: payment.discount,
       date: payment.date
     });
     
@@ -237,7 +239,6 @@ export const createPayment = async (req, res) => {
     session.endSession();
   }
 };
-
 // @desc    Update due status
 // @route   PATCH /api/dues/:id/status
 // @access  Private (Admin)
@@ -282,5 +283,93 @@ export const updateDueStatus = async (req, res) => {
       success: false,
       error: 'Server error updating due status' 
     });
+  }
+};
+
+// @desc    Delete a payment from a due
+// @route   DELETE /api/dues/:dueId/payments/:paymentId
+// @access  Private
+export const deletePayment = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { dueId, paymentId } = req.params;
+
+    // Validate ObjectIDs
+    if (!mongoose.Types.ObjectId.isValid(dueId) || !mongoose.Types.ObjectId.isValid(paymentId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid ID format'
+      });
+    }
+
+    // Fetch due with relaxed validation for vendor
+    const due = await CompanyTransaction.findById(dueId)
+      .session(session)
+      .setOptions({ strict: false }); // This bypasses validation temporarily
+
+    if (!due || due.type !== 'Due') {
+      return res.status(404).json({
+        success: false,
+        error: 'Due not found'
+      });
+    }
+
+    // Remove the payment document
+    const deletedPayment = await CompanyTransaction.findOneAndDelete({
+      _id: paymentId,
+      linkedDue: dueId
+    }).session(session);
+
+    if (!deletedPayment) {
+      return res.status(404).json({
+        success: false,
+        error: 'Payment not found'
+      });
+    }
+
+    // Safely remove from due.payments array
+    due.payments = due.payments.filter(p => {
+      return p && p.payment && p.payment.toString() === paymentId;
+    });
+
+    // Recalculate payment status
+    const totalPaid = due.payments.reduce((sum, p) => sum + (p?.amount || 0), 0);
+
+    if (totalPaid === 0) {
+      due.status = 'Pending';
+    } else if (totalPaid < due.amount) {
+      due.status = 'Partially Paid';
+    } else {
+      due.status = 'Fully Paid';
+    }
+
+    // Save with validation disabled for vendor field
+    await due.save({ 
+      session,
+      validateBeforeSave: false // Skip validation
+    });
+
+    await session.commitTransaction();
+    res.json({
+      success: true,
+      message: 'Payment deleted successfully',
+      updatedDue: {
+        _id: due._id,
+        status: due.status,
+        amountPaid: totalPaid,
+        amountRemaining: due.amount - totalPaid
+      }
+    });
+  } catch (err) {
+    await session.abortTransaction();
+    console.error('Error deleting payment:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Server error deleting payment'
+    });
+  } finally {
+    session.endSession();
   }
 };

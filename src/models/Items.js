@@ -7,6 +7,7 @@ const itemSchema = new mongoose.Schema({
   description: String,
   vendor: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
   addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  deleted : {type : Boolean, default : false}
 });
 
 export default mongoose.model('Item', itemSchema);

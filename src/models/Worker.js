@@ -32,15 +32,15 @@ const WorkerSchema = new mongoose.Schema(
       enum: ['Active', 'Inactive', 'On Leave'],
       default: 'Active',
     },
-    assignedProject: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Project',
-    },
-    createdBy: {
+       createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
     },
+    deleted : {
+      type : Boolean,
+      default : false
+    }
   },
   { timestamps: true }
 );

@@ -29,7 +29,14 @@ export const updateCategory = async (req, res) => {
 
 export const deleteCategory = async (req, res) => {
   try {
-    await AccountCategory.findByIdAndDelete(req.params.id);
+    const account = await AccountCategory.findById(req.params.id);
+    if(!account){
+      return res.status(404).json({ error: 'Account not found' });
+    }
+
+    account.deleted =true
+    await account.save()
+
     res.json({ message: 'Deleted successfully' });
   } catch {
     res.status(500).json({ error: 'Delete failed' });

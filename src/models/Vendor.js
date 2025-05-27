@@ -26,6 +26,10 @@ const VendorSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    deleted : {
+      type : Boolean,
+      default : false
+    }
   },
   { timestamps: true }
 );

@@ -32,6 +32,10 @@ const ProjectSchema = new mongoose.Schema(
       ref: 'User', // Assuming you have a User model
       required: true,
     },
+    deleted : {
+      type : Boolean,
+      default : false
+    }
   },
   { timestamps: true }
 );

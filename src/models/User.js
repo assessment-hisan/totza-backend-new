@@ -5,7 +5,11 @@ const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     password: { type: String },
     googleId: { type: String },
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now },
+    deleted : {
+        type : Boolean,
+        default : false
+      }
 });
 
 const User = mongoose.model('User', userSchema);

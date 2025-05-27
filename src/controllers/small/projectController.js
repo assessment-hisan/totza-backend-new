@@ -26,7 +26,7 @@ export const createProject = async (req, res) => {
 // Get all projects
 export const getProjects = async (req, res) => {
   try {
-    const projects = await Project.find().sort({ createdAt: -1 });
+    const projects = await Project.find({ deleted: false }).sort({ createdAt: -1 });
     res.status(200).json(projects);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -46,14 +46,29 @@ export const getProjectById = async (req, res) => {
     
   }
 }
+// Update vendor
+export const updateProject = async (req, res) => {
+  try {
+    const project = await Project.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    res.json(project);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
 export const getProjectTransactions = async (req, res) => {
   try {
     const { project } = req.query;
-
+  console.log(project)
     if (!project) {
       return res.status(400).json({
         success: false,
-        message: 'Worker ID is required'
+        message: 'Project ID is required'
       });
     }
 
@@ -67,7 +82,7 @@ export const getProjectTransactions = async (req, res) => {
       .sort({ date: -1 }) // Newest first
       .lean();
 
-    console.log(transactions)
+    console.log(transactions.length)
     // Transform the data for better client-side consumption
     const formattedTransactions = transactions.map(txn => ({
       _id: txn._id,
@@ -103,17 +118,24 @@ export const getProjectTransactions = async (req, res) => {
 } 
 // Delete a project
 export const deleteProject = async (req, res) => {
+  const {id} = req.params
+  console.log(id)
   try {
-    const project = await Project.findOneAndDelete({
+    const project = await Project.findOne({
       _id: req.params.id,
     });
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
     }
+    
+    project.deleted = true; // Corrected assignment operator
+    await project.save();   // Await the save operation
 
-    res.status(200).json({ message: 'Project deleted successfully' });
+     
+    res.status(200).json({ message: 'Project deleted successfully', project });
   } catch (error) {
     res.status(500).json({ error: error.message });
+    console.log(error)
   }
 };

@@ -38,7 +38,13 @@ export const updateItem = async (req, res) => {
 
 export const deleteItem = async (req, res) => {
   try {
-    await Item.findByIdAndDelete(req.params.id);
+    const item = await Item.findById(req.params.id);
+    if(!item){
+      return res.status(404).json({ error: 'item not found' });
+    }
+    item.deleted = true
+    await item.save()
+    
     res.json({ message: 'Item deleted' });
   } catch {
     res.status(500).json({ error: 'Delete failed' });

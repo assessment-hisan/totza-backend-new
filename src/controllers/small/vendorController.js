@@ -19,7 +19,7 @@ export const createVendor = async (req, res) => {
 // Get all vendors
 export const getVendors = async (req, res) => {
   try {
-    const vendors = await Vendor.find();
+    const vendors = await Vendor.find({ deleted: false }).sort({ createdAt: -1 })
     res.json(vendors);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -58,10 +58,13 @@ export const updateVendor = async (req, res) => {
 // Delete vendor
 export const deleteVendor = async (req, res) => {
   try {
-    const vendor = await Vendor.findByIdAndDelete(req.params.id);
+    const vendor = await Vendor.findById(req.params.id);
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
+    vendor.deleted = true; 
+    await vendor.save();   
+
     res.json({ message: 'Vendor deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
