@@ -11,7 +11,7 @@ export const createCategory = async (req, res) => {
 
 export const getCategories = async (req, res) => {
   try {
-    const categories = await AccountCategory.find();
+    const categories = await AccountCategory.find({deleted : false});
     res.json(categories);
   } catch {
     res.status(500).json({ error: 'Failed to fetch categories' });

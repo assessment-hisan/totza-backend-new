@@ -5,11 +5,11 @@ export const addItem = async (req, res) => {
     const { name, rate, unit, description, vendor } = req.body;
     const newItem = await Item.create({
       name,
-      rate,
-      unit,
-      description,
-      vendor,
-      addedBy: req.user.id
+      // rate,
+      // unit,
+      // description,
+      // vendor,
+      // addedBy: req.user.id
     });
     res.status(201).json(newItem);
   } catch (err) {
@@ -20,7 +20,7 @@ export const addItem = async (req, res) => {
 export const getItems = async (req, res) => {
   try {
     const { vendorId } = req.query;
-    const items = await Item.find(vendorId ? { vendor: vendorId } : {});
+    const items = await Item.find({deleted : false});
     res.json(items);
   } catch {
     res.status(500).json({ error: 'Failed to fetch items' });
