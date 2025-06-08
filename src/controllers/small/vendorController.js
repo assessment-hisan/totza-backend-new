@@ -1,4 +1,5 @@
 // controllers/small/vendorController.js
+import CompanyTransaction from "../../models/CompanyTransaction.js";
 import Vendor from "../../models/Vendor.js"
 
 // Create a new vendor
@@ -70,3 +71,58 @@ export const deleteVendor = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+export const getVendorTransactions = async (req, res) => {
+  try {
+    const { vendor } = req.query;
+  console.log(vendor)
+    if (!vendor) {
+      return res.status(400).json({
+        success: false,
+        message: 'Project ID is required'
+      });
+    }
+
+    // Find transactions where the worker is included in the workers array
+    const transactions = await CompanyTransaction.find({
+      vendor: vendor
+    })
+      .populate('account', 'name')
+      .populate('vendor', 'companyName')
+      .populate('project', 'title')
+      .sort({ date: -1 }) // Newest first
+      .lean();
+
+    console.log(transactions.length)
+    // Transform the data for better client-side consumption
+    const formattedTransactions = transactions.map(txn => ({
+      _id: txn._id,
+      type: txn.type,
+      amount: txn.amount,
+      discount: txn.discount || 0,
+      netAmount: txn.amount - (txn.discount || 0),
+      date: txn.date,
+      dueDate: txn.dueDate,
+      status: txn.status,
+      account: txn.account?.name || 'N/A',
+      vendor: txn.vendor?.companyName || 'N/A',
+      project: txn.project?.title || 'N/A',
+      purpose: txn.purpose,
+      items: txn.items,
+      files: txn.files,
+      createdAt: txn.createdAt
+    }));
+   console.log("formateed tnx" , formattedTransactions)
+    res.json({
+      success: true,
+      count: formattedTransactions.length,
+      transactions: formattedTransactions
+    });
+
+  } catch (error) {
+    console.error('Error fetching worker transactions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching transactions'
+    });
+  }
+} 

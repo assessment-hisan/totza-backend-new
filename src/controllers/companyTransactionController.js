@@ -26,7 +26,7 @@ export const createCompanyTransaction = async (req, res) => {
       ...cleanedBody,
       addedBy: req.user._id
     });
-
+    console.log(transaction)
     await transaction.save();
 
     

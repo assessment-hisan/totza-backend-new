@@ -105,6 +105,7 @@ export const updateWorker = async (req, res) => {
       new: true,
       runValidators: true,
     });
+    console.log(worker)
     if (!worker) {
       return res.status(404).json({ message: 'Worker not found' });
     }
